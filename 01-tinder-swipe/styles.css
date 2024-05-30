@@ -150,6 +150,7 @@ footer{
       font-size: 24px;
       font-weight: bold;
       text-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      transition: opacity 0.3 ease;
       opacity: 0;
         
       &.nope{

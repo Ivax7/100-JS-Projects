@@ -3,11 +3,12 @@ let isAnimating = false;
 let pullDeltaX = 0 // distancia que la card se está arrastrando
 
 function startDrag (event) {
-  if(isAnimating) return
+  if(isAnimating) return;
 
   // get the first article element
 
-  const actualCard = event.target.closest("article")
+  const actualCard = event.target.closest("article");
+  if (!actualCard) return;
 
   // get initial position of mouse or finger
   const startX = event.pageX ?? event.touches[0].pageX; // para detectar el primer touch en caso de que se toque con varios dedos
@@ -74,18 +75,18 @@ function startDrag (event) {
     actualCard.classList.add(goRight ? 'go-right' : 'go-left')
     actualCard.addEventListener('transitionend', () => {
       actualCard.remove();
-    }) // modificador de suscripción de evento 1 vez (en este caso es opcional)
+    })
     
   } else{
-    actualCard.classList.add('.reset')
+    actualCard.classList.add('reset')
     actualCard.classList.remove('go-right','go-left')
-
+    actualCard.querySelectorAll('.choice').forEach(el => el.style.opacity = 0)
     }
   
     // reset the variables
     actualCard,addEventListener('transitionend', ()=>{
       actualCard.removeAttribute('style');
-      actualCard.classList.remove('reset');
+      actualCard.classList.remove('.reset');
 
       pullDeltaX = 0;
       isAnimating = false;
