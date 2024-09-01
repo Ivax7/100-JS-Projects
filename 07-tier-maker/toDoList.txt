@@ -1,0 +1,4 @@
+- Tier List predeterminadas
+- Filtrar por archivos que no sean imagen
+- Que el usuario pueda elegir la cantidad de tiers
+- Hacer backend en MySQL
