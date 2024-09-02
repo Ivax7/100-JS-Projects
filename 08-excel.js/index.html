@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Excel.js</title>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    img {
+      max-width: 20px;
+      height: auto;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    thead, tr td:first-child {
+      background: #eee;
+    }
+
+    th, td {
+      border: 1px solid #ccc;
+      font-weight: normal;
+      font-size: 12px;
+      text-align: center;
+      width: 64px;
+      height: 20px;
+      vertical-align: middle;
+      position: relative;
+    }
+
+
+    span,
+    input {
+      position: absolute;
+      inset: 0;
+      vertical-align: middle;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    input {
+      border: 0;
+      opacity: 0;
+      pointer-events: none;
+      width: 100%;
+      border-radius: 2px;
+
+      &:focus {
+        outline: 2px solid #09f;
+        opacity: 1;
+      }
+    }
+
+
+    .selected {
+      background: rgb(174,223, 255);
+    }
+
+    th.selected {
+      background: rgb(146, 211, 255);
+    }
+  </style>
+
+  <script type="module">
+    const $ = el => document.querySelector(el) // recuperamos 1 elemento
+    const $$ = el => document.querySelectorAll(el) // recuperamos una lista de elementos
+
+    const $table = $('table')
+    const $head = $('thead')
+    const $body = $('tbody')
+
+    const ROWS = 10
+    const COLUMNS = 3
+    const FIRST_CHAR_CODE = 65
+
+    // función times
+    const times = length => Array.from({ length }, (_, i) => i)
+
+    // función letras en las columnas
+    const getColumn = i => String.fromCharCode(FIRST_CHAR_CODE + i)
+
+    let selectedColumn = null
+
+    // Creamos la matríz de 3x10 con valor de 0 en cada celda 
+    let STATE = times(COLUMNS)
+      .map(i => times(ROWS).map(j => ({computedValue: 0, value: 0})))
+    
+    // Función para actualizar 1 celda
+    function updateCell({ x, y, value }) {
+      const newState = structuredClone(STATE) // copia profunda del array state
+      const constants = generateCellsConstants(newState)
+
+      const cell = newState[x][y]
+      
+      cell.computedValue = computeValue(value, constants) // -> span
+      cell.value = value // -> input
+      
+      newState[x][y] = cell
+      
+      computeAllCells(newState, generateCellsConstants(newState))
+
+      STATE = newState
+
+      renderSpreedSheet()
+    }
+
+    // Función para generar las constantes
+    function generateCellsConstants (cells) {
+      return cells.map((rows, x) => {
+        return rows.map((cell, y) => {
+          const letter = getColumn(x) // -> A
+          const cellId = `${letter}${y+1}` // -> A1
+          
+          return `const ${cellId} = ${cell.computedValue}`
+        }).join('\n')
+      }).join('\n')
+    }
+
+    // Calculo de todas las celdas para actualizar los valores
+    function computeAllCells(cells, constants) {
+      cells.forEach((rows, x) => {
+        rows.forEach((cell, y) => {
+          const computedValue = computeValue(cell.value, constants)
+          cell.computedValue = computedValue
+        })
+      })
+    }
+
+
+    // Calculo del valor en el input
+    function computeValue (value, constants) {
+      if (typeof value === 'number') return value
+      if (!value.startsWith('=')) return value
+
+      const formula = value.slice(1)
+
+      let computedValue
+      try {
+        computedValue = eval(`(() => {
+          ${constants}
+          return ${formula}
+        })()`
+        )
+      } catch (e) {
+        computedValue = `!ERROR: ${e.message}`
+      }
+
+      return computedValue
+    }
+
+
+    // función renderizar hoja
+    const renderSpreedSheet = () => {
+      const headerHTML = `<tr>
+        <th></th>
+        ${times(COLUMNS).map(i => `<th>${getColumn(i)}</th>`).join('')}
+        </tr>`
+        
+        $head.innerHTML = headerHTML
+        
+        const bodyHTML = times(ROWS).map(row => {
+          return `<tr>
+          <td>${row + 1}</td>
+          ${times(COLUMNS).map(column => `
+          <td data-x="${column}" data-y="${row}">
+            <span>${STATE[column][row].computedValue}</span>
+            <input type="text" value="${STATE[column][row].value}" />
+          </td>
+          `).join('')}
+        </tr>`
+        }).join('')
+        
+        $body.innerHTML = bodyHTML
+    }
+
+
+    // EVENTOS
+
+    // Seleccionar celda
+    $body.addEventListener('click', event=> {
+      const td = event.target.closest('td')
+      if(!td) return 
+
+      const { x, y } = td.dataset
+      const input = td.querySelector('input')
+      const span = td.querySelector('span')
+      
+      const end = input.value.length
+      
+      input.setSelectionRange(end, end)
+      input.focus()
+
+        // Cerrar la selección de columna
+      $$('.selected').forEach(el => el.classList.remove('selected'))
+
+      input.addEventListener('keydown', (event) => {
+        if(event.key === 'Enter') input.blur()
+      })
+
+      input.addEventListener('blur', () => {
+        console.log({ value: input.value, state: STATE[x][y].value})
+
+        if(input.value === STATE[x][y].value) return
+
+        updateCell({ x, y, value: input.value })
+      }, { once: true })
+    })
+
+    // Seleccionar columna
+    $head.addEventListener('click', event => {
+      const th = event.target.closest('th')
+      if(!th) return
+
+      const x = [...th.parentNode.children].indexOf(th)
+      
+      if(x <= 0) return
+
+      selectedColumn = x-1
+
+      $$('.selected').forEach(el => el.classList.remove('selected'))
+      th.classList.add('selected')
+      $$(`tr td:nth-child(${x+1})`).forEach(el => el.classList.add('selected'))
+    })
+
+    // Borrar columna
+    document.addEventListener('keydown', (event) => {
+      if(event.key === 'Backspace' && selectedColumn != null) {
+        times(ROWS).forEach(row => {
+          updateCell({ x: selectedColumn, y: row, value: '' })
+        })
+        renderSpreedSheet()
+      }
+    })
+
+    // Copiar columna
+    document.addEventListener('copy', event => {
+      if(selectedColumn !== null) {
+        const columnValues = times(ROWS).map(row => {
+          return STATE[selectedColumn][row].computedValue
+        })
+        event.clipboardData.setData('text/plain', columnValues.join('\n'))
+        event.preventDefault()
+      }
+    })
+
+    // Cerrar la selección de columna
+    document.addEventListener('click', event => {
+      const { target } = event
+
+      const isThClicked = target.closes('th')
+      const isTdClicked = target.closes('th')
+    
+      if(!isThClicked && !isTdCLicked) {
+        $$('.selected').forEach(el => el.classList.remove('selected'))
+        selectedColumn = null
+      }
+    })
+    renderSpreedSheet()
+
+  </script>
+
+</head>
+<body>
+  <img src="https://imgs.search.brave.com/4HUDi-VTmEYFZUCDTa6Ci9OBIvVkcmm5xF8_99XXZuk/rs:fit:860:0:0:0/g:ce/aHR0cHM6Ly9sb2dv/ZG93bmxvYWQub3Jn/L3dwLWNvbnRlbnQv/dXBsb2Fkcy8yMDIw/LzA0L2V4Y2VsLWxv/Z28ucG5n">
+
+  <table>
+    <thead>
+
+    </thead>
+
+    <tbody>
+
+    </tbody>
+  </table>
+</body>
+</html>

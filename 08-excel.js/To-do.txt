@@ -1,0 +1,3 @@
+- Añadir la funcionalidad de filas
+- Suma por rangos (=A1:A10)
+- Seleccionar por celdas
