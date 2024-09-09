@@ -1,0 +1,2 @@
+- Cambios de grosores (lineWidth)
+- Añadir la ellipsis (parecido al rectangle)
